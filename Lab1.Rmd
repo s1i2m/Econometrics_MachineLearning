@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE,  message=FALSE, error=FALSE)
 
 Authors: Simon Merten, Matriculation Number 7375404\
 Leon Kvas, Matriculation Number 7371206\
-Marius Meise, Matriculation Number ?
+Marius Meise, Matriculation Number 7369546\
 
 ## Questions & Answers
 
@@ -45,29 +45,38 @@ $$
 ```{r}
 library(glmnet)
 library(tidyverse)
+
 nsim = 100 # Number of simulations
 nobs = 100 # Number of observations in the simulated dataset
 p = 10 # Number of regressors
 beta = c(2,3, rep(0,p-2)) # Coefficient vector
-# (2 for beta1, 3 for beta2,
-# 0s for remaining betas)
+                          # (2 for beta1, 3 for beta2,
+                          # 0s for remaining betas)
+
 x0 = c(rep(2, p)) # out-of-sample observation
+
 # Initialize vectors so that we can store results
 f0_ols = c()
 f0_lasso = c()
 f0_ridge = c()
+
 for (s in 1:nsim) {
+  
   X = MASS::mvrnorm(nobs, #Randomly drawn X variables
-  mu = rep(0, p),
-  Sigma = diag(p)
-  )
+                          mu = rep(0, p),
+                          Sigma = diag(p)
+                          )
+  
   y = X %*%beta + rnorm(nobs) # Simulate y with normal noise
+  
   # Fit OLS model
   fitOLS = lm(y~X)
   f0_ols[s] = fitOLS$coefficients%*%c(1, x0) # Prediction at x0
+  
   # Fit LASSO regression
   fitLASSO = cv.glmnet(X, y, alpha = 1)
   f0_lasso[s] = t(coef(fitLASSO, s="lambda.1se"))%*%c(1, x0) %>% as.numeric()
+  
   # Fit Ridge regression
   fitRidge = cv.glmnet(X, y, alpha = 0)
   f0_ridge[s] = t(coef(fitRidge, s="lambda.1se"))%*%c(1, x0) %>% as.numeric()
@@ -85,6 +94,15 @@ ggplot(predictions_long, aes(x = prediction, fill = model)) +
   labs(title = "Density of Predictions for OLS, LASSO, and Ridge", x = "Predicted value of f(x0)", y = "Density") +
   scale_fill_brewer(palette = "Set1")  # Adding a color palette for better visualization
 ```
+
+```{r}
+mean(f0_ols)
+mean(f0_lasso)
+mean(f0_ridge)
+```
+
+By examining the distributions of the predictions, it becomes apparent that the distributions of LASSO and Ridge are more similar to each other in terms of expectation than they are to OLS. The mean of the predictions for LASSO and Ridge is below 9, whereas for OLS, it is around 10. These results suggest the bias introduced in the regularized models. The unbiased OLS regression, in its expectation, approximates the true value of 10.
+
 
 ### 3. Compute bias, variance and mean squared error for the three different models at x0, our out-of-sample observation.
 
