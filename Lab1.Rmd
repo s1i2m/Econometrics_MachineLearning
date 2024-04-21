@@ -126,7 +126,66 @@ print(statistics)
 
 ### 4. How do bias and variance depend on the number of irrelevant regressors?
 
-???
+```{r}
+# function to run the simulation with different number of irrelevant regressors
+run_simulation1 <- function(p) {
+  beta = c(2,3, rep(0,p-2)) # Coefficient vector
+  x0 = c(rep(2, p)) # out-of-sample observation
+  f0_ols = c()
+  f0_lasso = c()
+  f0_ridge = c()
+  for (s in 1:nsim) {
+    X = MASS::mvrnorm(nobs, #Randomly drawn X variables
+                      mu = rep(0, p),
+                      Sigma = diag(p)
+    )
+    y = X %*%beta + rnorm(nobs) # Simulate y with normal noise
+    # Fit OLS model
+    fitOLS = lm(y~X)
+    f0_ols[s] = fitOLS$coefficients%*%c(1, x0) # Prediction at x0
+    # Fit LASSO regression
+    fitLASSO = cv.glmnet(X, y, alpha = 1)
+    f0_lasso[s] = t(coef(fitLASSO, s="lambda.1se"))%*%c(1, x0) %>% as.numeric()
+    # Fit Ridge regression
+    fitRidge = cv.glmnet(X, y, alpha = 0)
+    f0_ridge[s] = t(coef(fitRidge, s="lambda.1se"))%*%c(1, x0) %>% as.numeric()
+  }
+  
+  # Data frame for plotting
+  predictions <- data.frame(f0_ols, f0_lasso, f0_ridge)
+  
+  # Melting data frame for easier plotting
+  predictions_long <- pivot_longer(predictions, cols = everything(), names_to = "model", values_to = "prediction")
+  
+  # True value of f(x0)
+  true_value <- 10
+  
+  # Calculate Bias, Variance, and MSE for each model
+  statistics <- predictions_long %>%
+    group_by(model) %>%
+    summarise(
+      Bias = mean(prediction) - true_value,
+      Variance = var(prediction),
+      MSE = mean((prediction - true_value)^2),
+      .groups = 'drop'
+    )
+  
+  return(statistics)
+}
+#plotting the results
+p_values <- c(10, 20, 30, 40, 50)
+results <- map_dfr(p_values, run_simulation1, .id = "p")
+results$p <- as.factor(results$p)
+results_long <- pivot_longer(results, cols = c(Bias, Variance), names_to = "statistic", values_to = "value")
+
+ggplot(results_long, aes(x = p, y = value, fill = model)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~statistic, scales = "free_y") +
+  labs(title = "Bias and Variance for OLS, LASSO, and Ridge with different number of irrelevant regressors",
+       x = "Number of irrelevant regressors", y = "Value") +
+  scale_fill_brewer(palette = "Set1")
+
+```
 
 ### 5. How do bias and variance depend on the number of observations?
 
